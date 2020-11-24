@@ -13,15 +13,15 @@ import model
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
                     help='location of the data corpus')
-parser.add_argument('--model', type=str, default='LSTM',
-                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, Transformer)')
+parser.add_argument('--model', type=str, default='FNN',
+                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, Transformer or FNN)')
 parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=20,
+parser.add_argument('--lr', type=float, default=0.0001,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
@@ -88,7 +88,7 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     return data.to(device)
 
-eval_batch_size = 10
+eval_batch_size = args.batch_size
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, eval_batch_size)
@@ -100,6 +100,8 @@ test_data = batchify(corpus.test, eval_batch_size)
 ntokens = len(corpus.dictionary)
 if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
+elif args.model == "FNN":
+    model = model.FNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.batch_size, args.dropout, args.tied).to(device)
 else:
     model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
@@ -131,8 +133,9 @@ def repackage_hidden(h):
 def get_batch(source, i):
     seq_len = min(args.bptt, len(source) - 1 - i)
     data = source[i:i+seq_len]
-    target = source[i+1:i+1+seq_len].view(-1)
-    return data, target
+    new_target = source[i+1:i+1+seq_len]
+    new_target = new_target[:, :1].view(-1)
+    return data, new_target
 
 
 def evaluate(data_source):
@@ -140,7 +143,7 @@ def evaluate(data_source):
     model.eval()
     total_loss = 0.
     ntokens = len(corpus.dictionary)
-    if args.model != 'Transformer':
+    if args.model != 'Transformer' and args.model != 'FNN':
         hidden = model.init_hidden(eval_batch_size)
     with torch.no_grad():
         for i in range(0, data_source.size(0) - 1, args.bptt):
@@ -148,6 +151,9 @@ def evaluate(data_source):
             if args.model == 'Transformer':
                 output = model(data)
                 output = output.view(-1, ntokens)
+            elif args.model == "FNN":
+                output = model(data)
+                output = output.view(-1, ntokens)                
             else:
                 output, hidden = model(data, hidden)
                 hidden = repackage_hidden(hidden)
@@ -156,28 +162,37 @@ def evaluate(data_source):
 
 
 def train():
+    # initialise optimizer
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
     # Turn on training mode which enables dropout.
     model.train()
     total_loss = 0.
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    if args.model != 'Transformer':
+    if args.model != 'Transformer' and args.model != 'FNN':
         hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         data, targets = get_batch(train_data, i)
-        print("data == ", data.shape)
-        print("targets ==", targets.shape)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         model.zero_grad()
         if args.model == 'Transformer':
             output = model(data)
             output = output.view(-1, ntokens)
+        elif args.model == "FNN":
+            output = model(data)
+            output = output.view(-1, ntokens)
         else:
             hidden = repackage_hidden(hidden)
             output, hidden = model(data, hidden)
+        # print("OUTPUT shape", output.shape)
+        # print("targets shape", targets.shape)
+        optimizer.zero_grad()        
         loss = criterion(output, targets)
         loss.backward()
+        optimizer.step()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
@@ -230,7 +245,11 @@ try:
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 4.0
+            pass
+            # lr /= 4.0
+            # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+            # optimizer = torch.optim.SGD(parameters, lr=lr)
+            # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
