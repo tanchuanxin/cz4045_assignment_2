@@ -17,3 +17,4 @@ fast_neural_style/saved_models.zip
 
 # outputs
 generated.txt
+*.pt

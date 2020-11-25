@@ -35,8 +35,8 @@ optional arguments:
   --lr LR               initial learning rate
   --clip CLIP           gradient clipping
   --epochs EPOCHS       upper epoch limit
-  --batch_size N        batch size
-  --bptt BPTT           sequence length
+  --ngram_size N        ngram size
+  --batch_size batch_size           batch size
   --dropout DROPOUT     dropout applied to layers (0 = no dropout)
   --tied                tie the word embedding and softmax weights
   --seed SEED           random seed

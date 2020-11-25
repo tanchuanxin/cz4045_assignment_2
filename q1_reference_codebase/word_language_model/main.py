@@ -6,6 +6,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.onnx
+import numpy as np
 
 import data
 import model
@@ -13,7 +14,7 @@ import model
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
                     help='location of the data corpus')
-parser.add_argument('--model', type=str, default='FNN',
+parser.add_argument('--model', type=str, default='RNN',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, Transformer or FNN)')
 parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
@@ -27,13 +28,13 @@ parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
                     help='upper epoch limit')
-parser.add_argument('--batch_size', type=int, default=8, metavar='N',
+parser.add_argument('--ngram_size', type=int, default=8, metavar='N',
                     help='batch size')
-parser.add_argument('--bptt', type=int, default=35,
+parser.add_argument('--batch_size', type=int, default=3500,
                     help='sequence length')
 parser.add_argument('--dropout', type=float, default=0.2,
                     help='dropout applied to layers (0 = no dropout)')
-parser.add_argument('--tied', action='store_true',
+parser.add_argument('--tied', action='store_true', default=True,
                     help='tie the word embedding and softmax weights')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
@@ -74,24 +75,21 @@ corpus = data.Corpus(args.data)
 # │ c i o u │
 # │ d j p v │
 # │ e k q w │
-# └ f l r x ┘.
+# └ f l r x ┘
 # These columns are treated as independent by the model, which means that the
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
 
 def batchify(data, bsz):
-    # Work out how cleanly we can divide the dataset into bsz parts.
-    nbatch = data.size(0) // bsz
-    # Trim off any extra elements that wouldn't cleanly fit (remainders).
-    data = data.narrow(0, 0, nbatch * bsz)
-    # Evenly divide the data across the bsz batches.
-    data = data.view(bsz, -1).t().contiguous()
+    # Implement sliding window to generate data in sizes of bsz
+    data = [np.array(data[i:i+bsz]) for i in range(data.shape[0] - bsz + 1)]
+    data = torch.Tensor(data).to(torch.int64)
     return data.to(device)
 
-eval_batch_size = args.batch_size
-train_data = batchify(corpus.train, args.batch_size)
-val_data = batchify(corpus.valid, eval_batch_size)
-test_data = batchify(corpus.test, eval_batch_size)
+eval_ngram_size = args.ngram_size
+train_data = batchify(corpus.train, args.ngram_size)
+val_data = batchify(corpus.valid, eval_ngram_size)
+test_data = batchify(corpus.test, eval_ngram_size)
 
 ###############################################################################
 # Build the model
@@ -101,7 +99,7 @@ ntokens = len(corpus.dictionary)
 if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 elif args.model == "FNN":
-    model = model.FNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.batch_size, args.dropout, args.tied).to(device)
+    model = model.FNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.ngram_size, args.dropout, args.tied).to(device)
 else:
     model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
@@ -120,9 +118,9 @@ def repackage_hidden(h):
         return tuple(repackage_hidden(v) for v in h)
 
 
-# get_batch subdivides the source data into chunks of length args.bptt.
+# get_batch subdivides the source data into chunks of length args.batch_size.
 # If source is equal to the example output of the batchify function, with
-# a bptt-limit of 2, we'd get the following two Variables for i = 0:
+# a batch_size-limit of 2, we'd get the following two Variables for i = 0:
 # ┌ a g m s ┐ ┌ b h n t ┐
 # └ b h n t ┘ └ c i o u ┘
 # Note that despite the name of the function, the subdivison of data is not
@@ -131,11 +129,14 @@ def repackage_hidden(h):
 # to the seq_len dimension in the LSTM.
 
 def get_batch(source, i):
-    seq_len = min(args.bptt, len(source) - 1 - i)
+    # Generate batches based on 
+    seq_len = min(args.batch_size, len(source) - 1 - i)
+
+
     data = source[i:i+seq_len]
-    new_target = source[i+1:i+1+seq_len]
-    new_target = new_target[:, :1].view(-1)
-    return data, new_target
+    target = data[:, -1]
+    data = data[:, :-1]
+    return data, target
 
 
 def evaluate(data_source):
@@ -144,9 +145,9 @@ def evaluate(data_source):
     total_loss = 0.
     ntokens = len(corpus.dictionary)
     if args.model != 'Transformer' and args.model != 'FNN':
-        hidden = model.init_hidden(eval_batch_size)
+        hidden = model.init_hidden(eval_ngram_size)
     with torch.no_grad():
-        for i in range(0, data_source.size(0) - 1, args.bptt):
+        for i in range(0, data_source.size(0) - 1, args.batch_size):
             data, targets = get_batch(data_source, i)
             if args.model == 'Transformer':
                 output = model(data)
@@ -172,8 +173,8 @@ def train():
     start_time = time.time()
     ntokens = len(corpus.dictionary)
     if args.model != 'Transformer' and args.model != 'FNN':
-        hidden = model.init_hidden(args.batch_size)
-    for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        hidden = model.init_hidden(args.ngram_size)
+    for batch, i in enumerate(range(0, train_data.size(0) - 1, args.batch_size)):
         data, targets = get_batch(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
@@ -206,7 +207,7 @@ def train():
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
-                epoch, batch, len(train_data) // args.bptt, lr,
+                epoch, batch, len(train_data) // args.batch_size, lr,
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
@@ -214,12 +215,12 @@ def train():
             break
 
 
-def export_onnx(path, batch_size, seq_len):
+def export_onnx(path, ngram_size, seq_len):
     print('The model is also exported in ONNX format at {}'.
           format(os.path.realpath(args.onnx_export)))
     model.eval()
-    dummy_input = torch.LongTensor(seq_len * batch_size).zero_().view(-1, batch_size).to(device)
-    hidden = model.init_hidden(batch_size)
+    dummy_input = torch.LongTensor(seq_len * ngram_size).zero_().view(-1, ngram_size).to(device)
+    hidden = model.init_hidden(ngram_size)
     torch.onnx.export(model, (dummy_input, hidden), path)
 
 
@@ -241,7 +242,12 @@ try:
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
-                torch.save(model, f)
+                if args.tied:
+                    saved_filename = args.save[:-3] + "-tied" + args.save[-3:]
+                else:
+                    saved_filename = args.save[:-3] + "-tied" + args.save[-3:]
+                print("==== SAVING BEST MODEL",saved_filename,"====")
+                torch.save(model, saved_filename)
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
@@ -272,4 +278,4 @@ print('=' * 89)
 
 if len(args.onnx_export) > 0:
     # Export the model in ONNX format.
-    export_onnx(args.onnx_export, batch_size=1, seq_len=args.bptt)
+    export_onnx(args.onnx_export, ngram_size=1, seq_len=args.batch_size)
