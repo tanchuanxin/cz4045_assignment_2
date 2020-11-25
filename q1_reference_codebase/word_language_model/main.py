@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import numpy as np
+import pandas as pd
 
 import data
 import model
@@ -14,27 +15,27 @@ import model
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
                     help='location of the data corpus')
-parser.add_argument('--model', type=str, default='RNN',
+parser.add_argument('--model', type=str, default='FNN',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, Transformer or FNN)')
 parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
-parser.add_argument('--nlayers', type=int, default=2,
+parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=0.0001,
+parser.add_argument('--lr', type=float, default=0.001,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=40,
+parser.add_argument('--epochs', type=int, default=1,
                     help='upper epoch limit')
 parser.add_argument('--ngram_size', type=int, default=8, metavar='N',
                     help='batch size')
-parser.add_argument('--batch_size', type=int, default=3500,
+parser.add_argument('--batch_size', type=int, default=1000,
                     help='sequence length')
 parser.add_argument('--dropout', type=float, default=0.2,
                     help='dropout applied to layers (0 = no dropout)')
-parser.add_argument('--tied', action='store_true', default=True,
+parser.add_argument('--tied', action='store_true', default=False,
                     help='tie the word embedding and softmax weights')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
@@ -42,7 +43,7 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str, default='model.pt',
+parser.add_argument('--save', type=str, default='models/model.pt',
                     help='path to save the final model')
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
@@ -53,6 +54,16 @@ parser.add_argument('--dry-run', action='store_true',
                     help='verify the code and the model')
 
 args = parser.parse_args()
+
+
+"""Initialise dataframe to store validation results and plotting in jupyter notebook"""
+result_df = pd.DataFrame()
+
+"""Set saved_filename for model file based on model and whether tied option is enabled"""
+if args.tied:
+    saved_filename = args.save[:-3] + "-" + args.model + "-tied" + args.save[-3:]
+else:
+    saved_filename = args.save[:-3] + "-" + args.model + "-not_tied" + args.save[-3:]
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -80,11 +91,28 @@ corpus = data.Corpus(args.data)
 # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
 # batch processing.
 
+
+"""Adapted batchify function
+
+    Should the model be FNN, the sliding window mechanism is implemented. For 8 ngram,
+    the sliding window (bsz) is set to 8, and subsequently will be split into 7 word inputs 
+    and 1 target word in the get_batch function below. If the model is Transformer or RNN
+    architecture, the original batchify function will be used for preprocessing the data.    
+"""
 def batchify(data, bsz):
-    # Implement sliding window to generate data in sizes of bsz
-    data = [np.array(data[i:i+bsz]) for i in range(data.shape[0] - bsz + 1)]
-    data = torch.Tensor(data).to(torch.int64)
-    return data.to(device)
+    if args.model == "FNN":
+        # Implement sliding window to generate data in sizes of bsz
+        data = [np.array(data[i:i+bsz]) for i in range(data.shape[0] - bsz + 1)]
+        data = torch.Tensor(data).to(torch.int64)
+        return data.to(device)
+    else:
+        # Work out how cleanly we can divide the dataset into bsz parts.
+        nbatch = data.size(0) // bsz
+        # Trim off any extra elements that wouldn't cleanly fit (remainders).
+        data = data.narrow(0, 0, nbatch * bsz)
+        # Evenly divide the data across the bsz batches.
+        data = data.view(bsz, -1).t().contiguous()
+        return data.to(device)     
 
 eval_ngram_size = args.ngram_size
 train_data = batchify(corpus.train, args.ngram_size)
@@ -99,7 +127,7 @@ ntokens = len(corpus.dictionary)
 if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 elif args.model == "FNN":
-    model = model.FNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.ngram_size, args.dropout, args.tied).to(device)
+    model = model.FNNModel(ntokens, args.emsize, args.nhid, args.ngram_size, args.dropout, args.tied).to(device)
 else:
     model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
@@ -128,15 +156,25 @@ def repackage_hidden(h):
 # by the batchify function. The chunks are along dimension 0, corresponding
 # to the seq_len dimension in the LSTM.
 
+"""Adapted get_batch function
+
+    For FNN model, the data is selected to all the words except the words in the
+    last column. The target will be the last column of words. For transformer or
+    RNN based models, the original get_batch function will be used for the data
+    preprocessing
+"""
 def get_batch(source, i):
-    # Generate batches based on 
     seq_len = min(args.batch_size, len(source) - 1 - i)
-
-
-    data = source[i:i+seq_len]
-    target = data[:, -1]
-    data = data[:, :-1]
-    return data, target
+    if args.model == "FNN":
+        # Generate batches based on sliding window
+        data = source[i:i+seq_len]
+        target = data[:, -1]
+        data = data[:, :-1]
+        return data, target
+    else:
+        data = source[i:i+seq_len]
+        target = source[i+1:i+1+seq_len].view(-1)
+        return data, target  
 
 
 def evaluate(data_source):
@@ -163,8 +201,7 @@ def evaluate(data_source):
 
 
 def train():
-    # initialise optimizer
-    # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    # initialise Adam optimizer with configured learning rate
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # Turn on training mode which enables dropout.
@@ -188,8 +225,6 @@ def train():
         else:
             hidden = repackage_hidden(hidden)
             output, hidden = model(data, hidden)
-        # print("OUTPUT shape", output.shape)
-        # print("targets shape", targets.shape)
         optimizer.zero_grad()        
         loss = criterion(output, targets)
         loss.backward()
@@ -242,26 +277,27 @@ try:
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
-                if args.tied:
-                    saved_filename = args.save[:-3] + "-tied" + args.save[-3:]
-                else:
-                    saved_filename = args.save[:-3] + "-tied" + args.save[-3:]
                 print("==== SAVING BEST MODEL",saved_filename,"====")
                 torch.save(model, saved_filename)
             best_val_loss = val_loss
-        else:
-            # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            pass
-            # lr /= 4.0
-            # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-            # optimizer = torch.optim.SGD(parameters, lr=lr)
-            # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+        # Append results to pandas DataFrame for analysis of validation results 
+        result_df = result_df.append({
+            "epoch": epoch, 
+            "perpexity": math.exp(val_loss),
+            "val_loss": val_loss, 
+        }, ignore_index=True)
+
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
 
+# Save results from results_df into csv for further analysis
+csv_filename = "logs" + saved_filename[6:-3] + '.csv'
+result_df.to_csv(csv_filename)
+
 # Load the best saved model.
-with open(args.save, 'rb') as f:
+with open(saved_filename, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
