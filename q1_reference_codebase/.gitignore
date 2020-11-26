@@ -18,4 +18,3 @@ fast_neural_style/saved_models.zip
 # outputs files
 generated.txt
 *.pt
-*.csv
