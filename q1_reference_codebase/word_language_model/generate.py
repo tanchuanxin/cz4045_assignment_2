@@ -34,6 +34,10 @@ parser.add_argument('--ngram', type=int, default=8,
                     help='ngram value')                    
 args = parser.parse_args()
 
+# Print Model Checkpoint for logging
+print("\n ===============================")
+print("Model checkpoint:", args.checkpoint)
+
 # Configure filename of generated text file
 generated_text_filename = 'generated/' + args.checkpoint[9:-3] + '-' + args.outf
 
