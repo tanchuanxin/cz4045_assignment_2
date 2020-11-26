@@ -61,9 +61,9 @@ result_df = pd.DataFrame()
 
 """Set saved_filename for model file based on model and whether tied option is enabled"""
 if args.tied:
-    saved_filename = args.save[:-3] + "-" + args.model + "-tied" + args.save[-3:]
+    saved_filename = args.save[:-3] + "-rms-" + args.model + "-tied" + args.save[-3:]
 else:
-    saved_filename = args.save[:-3] + "-" + args.model + "-not_tied" + args.save[-3:]
+    saved_filename = args.save[:-3] + "-rms-" + args.model + "-not_tied" + args.save[-3:]
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -202,7 +202,7 @@ def evaluate(data_source):
 
 def train():
     # initialise Adam optimizer with configured learning rate
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=lr)
 
     # Turn on training mode which enables dropout.
     model.train()

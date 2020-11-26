@@ -14,3 +14,7 @@ fast_neural_style/saved_models.zip
 
 # vi backups
 *~
+
+# outputs files
+generated.txt
+*.pt
