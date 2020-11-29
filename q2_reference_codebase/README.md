@@ -1,50 +1,49 @@
-# End-to-end-Sequence-Labeling-via-Bi-directional-LSTM-CNNs-CRF-Tutorial
+# End-to-end-Sequence-Labeling-via-CNNs-CRF 
 
-This is a PyTorch tutorial for the ACL'16 paper 
-[**End-to-end Sequence Labeling via Bi-directional LSTM-CNNs-CRF**](http://www.aclweb.org/anthology/P16-1101)
-
-This repository includes
-
-* [**IPython Notebook of the tutorial**](https://github.com/jayavardhanr/End-to-end-Sequence-Labeling-via-Bi-directional-LSTM-CNNs-CRF-Tutorial/blob/master/Named_Entity_Recognition-LSTM-CNN-CRF-Tutorial.ipynb)
-* Data folder
-* Setup Instructions file
-* Pretrained models directory (The notebook will automatically download pre-trained models into this directory, as required)
-
-### Authors
-
-[**Anirudh Ganesh**](https://github.com/TheAnig)
-
-[**Peddamail Jayavardhan Reddy**](https://github.com/jayavardhanr)
+This repository is built upon this [**End-to-end-Sequence-Labeling-via-Bi-directional-LSTM-CNNs-CRF**](https://github.com/jayavardhanr/End-to-end-Sequence-Labeling-via-Bi-directional-LSTM-CNNs-CRF-Tutorial/blob/master/Named_Entity_Recognition-LSTM-CNN-CRF-Tutorial.ipynb) codebase and seeks to replace the LSTM-based word-level encoder with a CNN layer. 
 
 
-### Installation
-The best way to install pytorch is via the [**pytorch webpage**](http://pytorch.org/)
+## Setup 
 
-### Setup
+### 1. Upload the entire **q2_reference_codebase** folder into google drive. This is to utilise the GPU provided in Google Colabs for the training of models. 
 
-#### Creating new Conda environment
-`conda create -n pytorch python=3.5`
 
-#### Activate the condo environment
-`source activate pytorch`
+The **q2_reference_codebase** folder should contain 
 
-#### Setting up notebooks with specific python version (python 3.5)
-```
-conda install notebook ipykernel
-ipython kernel install --user
-```
+#### 1. /data directory which contains the dataset for this repository
+- eng.testa
+- eng.testb
+- eng.train
+#### 2. /models directory which contains pre-trained models 
+- CNN-1-layer
+- CNN-1-layer--relu
+- CNN-2-layer
+- CNN-2-layer--relu
+- CNN-3-layer
+- CNN-3-layer--relu
+#### 3. **Named_Entity_Recognition-CNN-CRF.ipynb** notebook 
 
-#### PyTorch Installation command:
-`conda install pytorch torchvision -c pytorch`
 
-#### NumPy installation
-`conda install -c anaconda numpy`
-
-#### Download GloVe vectors and extract glove.6B.100d.txt into "./data/" folder
-
+### 2. Download GloVe vectors and extract glove.6B.100d.txt into "./data/" folder
 `wget http://nlp.stanford.edu/data/glove.6B.zip`
 
-#### Data Files
+### 3. Installation
+The best way to install pytorch is via the [**pytorch webpage**](http://pytorch.org/)
 
+####  PyTorch Installation command:
+`conda install pytorch torchvision -c pytorch`
 
-You can download the data files from within this repo [**over here**](https://github.com/TheAnig/NER-LSTM-CNN-Pytorch/tree/master/data)
+####  NumPy installation
+`conda install -c anaconda numpy`
+
+### 4. Open **Named_Entity_Recognition-CNN-CRF.ipynb** in Google Colab
+
+#### **Important things to note**:
+1. Google drive must be mounted and path to **q2_reference_codebase** has to be navigated to<br>
+    This codeblock should only be run once and can be commented out after. 
+
+    `from google.colab import drive`<br> 
+    `drive.mount('/content/drive')`<br>
+    `%cd 'drive/*path to q2_reference_codebase*'`
+2. Pre-trained models have been included in /models directory and can be loaded in to test testdata set.
+
