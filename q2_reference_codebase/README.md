@@ -5,7 +5,8 @@ This repository is built upon this [**End-to-end-Sequence-Labeling-via-Bi-direct
 
 ## Setup 
 
-### 1. Upload the entire **q2_reference_codebase** folder into google drive. This is to utilise the GPU provided in Google Colabs for the training of models. 
+### 1. Upload the entire **q2_reference_codebase** folder into google drive. 
+This is to utilise the GPU provided in Google Colabs for the training of models. 
 
 
 The **q2_reference_codebase** folder should contain 
