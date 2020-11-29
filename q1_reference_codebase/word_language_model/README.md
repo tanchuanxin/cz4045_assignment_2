@@ -22,7 +22,7 @@ logs                    # csv files logging the perplexity score and validation 
 models                  # stores the model .pt files that can be used to recreate models and generate predictions
 ```
 
-Model files are too large to host on github. Please access this <a href="https://entuedu-my.sharepoint.com/:u:/g/personal/ctan184_e_ntu_edu_sg/Ec8ziK38bbhDsG5-xeb_my0BTE2Gqjidf5_gbJBp49KgKg?e=Npl8kM> LINK </a> to download them instead:
+Model files are too large to host on github. Please access this <a href="https://entuedu-my.sharepoint.com/:u:/g/personal/ctan184_e_ntu_edu_sg/Ec8ziK38bbhDsG5-xeb_my0BTE2Gqjidf5_gbJBp49KgKg?e=Npl8kM"> LINK </a> to download them instead:
 
 
 ### Visualization
