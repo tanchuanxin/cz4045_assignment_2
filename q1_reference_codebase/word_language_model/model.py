@@ -3,6 +3,54 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class FNNModel(nn.Module):
+    """Container module for FNN Model with single hidden layer."""
+    def __init__(self, ntoken, ninp, nhid, ngram, dropout=0.5, tie_weights=False):
+        super(FNNModel, self).__init__()
+        self.model_type = 'FNN'
+        self.ngram = ngram
+        self.ntoken = ntoken
+        self.drop = nn.Dropout(dropout)
+        self.encoder = nn.Embedding(ntoken, ninp) 
+        self.hidden_input_size = int((ngram-1) * ninp)
+        self.hidden_layer = nn.Linear(self.hidden_input_size, nhid)
+        self.decoder = nn.Linear(nhid, ntoken)
+
+        """ Flag for tie weights: If tie_weights is true, weights will be shared by encode and decoder"""
+        if tie_weights:
+            if nhid != ninp:
+                raise ValueError('When using the tied flag, nhid must be equal to emsize')
+            self.decoder.weight = self.encoder.weight
+            print("=== Tied Weights Selected ===")
+        else:
+            print("=== Tied Weights Not Selected ===")
+
+        self.init_weights()
+        self.nhid = nhid
+
+    """ Initialisation of values of weights"""
+    def init_weights(self):
+        initrange = 0.1
+        nn.init.uniform_(self.encoder.weight, -initrange, initrange)
+        nn.init.zeros_(self.decoder.weight)
+        nn.init.uniform_(self.decoder.weight, -initrange, initrange)
+    
+    """ Forward pass through neural network
+    
+    Inputs are first passed through embeddings and are subsequently flattented. Embeddings
+     are passed into the hidden layer. This is followed by the output layer, and the log_softmax
+     function.    
+    """
+    def forward(self, input):
+        emb = self.drop(self.encoder(input))
+        emb = torch.flatten(emb, start_dim=1)
+        hidden_activations = self.hidden_layer(emb)
+        output = self.drop(hidden_activations)
+        decoded = self.decoder(output)
+        decoded = decoded.view(-1, self.ntoken)
+        return F.log_softmax(decoded, dim=1)
+
+
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
