@@ -48,3 +48,7 @@ ipython kernel install --user
 
 
 You can download the data files from within this repo [**over here**](https://github.com/TheAnig/NER-LSTM-CNN-Pytorch/tree/master/data)
+
+##CZ4045 instructions
+In order to run the code, download the data files above. Our code is stored in Named_Entity_Recognition-Word CNN-CRF.ipynb. In the first code cell, edit the parameters['layers'] and parameters['relu'] in order to choose your model,
+and uncomment out parameters['reload']=False in order to train the model you have chosen.  
