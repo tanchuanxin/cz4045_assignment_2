@@ -22,7 +22,7 @@ The **q2_reference_codebase** folder should contain
 - CNN-2-layer--relu
 - CNN-3-layer
 - CNN-3-layer--relu
-#### 3. **Named_Entity_Recognition-CNN-CRF.ipynb** notebook 
+#### 3. **Named_Entity_Recognition-Word CNN-CRF.ipynb** notebook 
 
 
 ### 2. Download GloVe vectors and extract glove.6B.100d.txt into "./data/" folder
@@ -37,7 +37,7 @@ The best way to install pytorch is via the [**pytorch webpage**](http://pytorch.
 ####  NumPy installation
 `conda install -c anaconda numpy`
 
-### 4. Open **Named_Entity_Recognition-CNN-CRF.ipynb** in Google Colab
+### 4. Open **Named_Entity_Recognition-Word CNN-CRF.ipynb** in Google Colab
 
 #### **Important things to note**:
 1. Google drive must be mounted and path to **q2_reference_codebase** has to be navigated to<br>
@@ -47,4 +47,5 @@ The best way to install pytorch is via the [**pytorch webpage**](http://pytorch.
     `drive.mount('/content/drive')`<br>
     `%cd 'drive/*path to q2_reference_codebase*'`
 2. Pre-trained models have been included in /models directory and can be loaded in to test testdata set.
-
+3. In the first code cell, edit the parameters['layers'] and parameters['relu'] in order to choose your model,
+and uncomment out parameters['reload']=False in order to train the model you have chosen.  
