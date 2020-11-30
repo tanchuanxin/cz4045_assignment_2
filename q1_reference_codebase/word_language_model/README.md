@@ -1,7 +1,7 @@
 # Word-level language modeling (FNN, LSTM, Transformer)
 
 ### Installation and Required Packages
-We have already included the dataset here. All that is required is to install the python packages 
+We have already included the dataset here in the ```data/wikitext-2 folder```. All that is required is to install the python packages 
 ```bash 
 pip install -r requirements.txt # Install required python packages
 ```
