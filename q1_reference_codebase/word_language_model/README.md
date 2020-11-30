@@ -14,7 +14,7 @@ sh rms_batch.sh         # Trains FNN Model with RMS Optimizer for comparison of 
 sh generate_text.sh     # Generate text for all models from batch.sh and rms_batch.sh  
 ```
 
-Do not run ```sh generate_text.sh``` before you run the other two scripts. It requires the model files to be generated in order to produce text predictions. Model files are too large to host on github, or to submit. Please access them through this <a href="https://entuedu-my.sharepoint.com/:u:/g/personal/ctan184_e_ntu_edu_sg/Ec8ziK38bbhDsG5-xeb_my0BTE2Gqjidf5_gbJBp49KgKg?e=Npl8kM"> LINK </a> to download them instead. Please download them or run the first two shell scripts before running the third.
+Do not run ```sh generate_text.sh``` before you run the other two scripts. It requires the model files to be generated in order to produce text predictions. Model files are too large to host on github, or to submit. Please access them through this <a href="https://entuedu-my.sharepoint.com/:u:/g/personal/ctan184_e_ntu_edu_sg/EVBndQO15mNEs3H2zbtjqCEB7x2uWNQQPkqCQMQJ5Vh-dA?e=ynoyrJ"> LINK </a> to download them instead. Please download them or run the first two shell scripts before running the third.
 
 ### Outputs
 We log the metrics and the generated texts in separate folders. Please open the respective folders to take a look
